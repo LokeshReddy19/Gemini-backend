@@ -36,6 +36,7 @@ API_KEY='AIzaSyCT67i2JlhxygOkE-oidN9z31Ul6XH9tE8'
 API_URL=f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
 
 
+
 #MongoDB configuration
 MONGO_URI =  "mongodb+srv://narralokeshreddy859:KDag76fPNbPKt0wx@analysis.6kz1qmc.mongodb.net/"
 
@@ -69,17 +70,18 @@ async def analyze_sentiment(request:SentimentRequest):
         raise HTTPException(status_code=500, detail=f"Error analyzing sentiment: {str(e)}")
 
 @app.post("/analyze")
-async def analyze_text(request:QueryModel):
-    user_query=request.user_query
+async def analyze_text(request: QueryModel):
+    user_query = request.user_query
 
-    #Formatting the UserQuery data 
-    data={
+    # Prepare the data in the proper API request format
+    data = {
         "contents": [{"parts": [{"text": user_query}]}]
     }
 
     try:
+        # Send request to Gemini API
         response = requests.post(API_URL, json=data)
-        response.raise_for_status()   # Raise an error for bad responses
+        response.raise_for_status()  # Raise an error for 4xx/5xx responses
 
         # Extract AI response safely
         response_data = response.json()
@@ -89,18 +91,33 @@ async def analyze_text(request:QueryModel):
             .get("parts", [{}])[0]
             .get("text", "No response received.")
         )
-        sentiment_score, sentiment = sentiment_analysis(user_query) 
-        collection.insert_one({"user_query": user_query,"generated_text":generated_text , "sentiment_score": sentiment_score,"sentiment": sentiment,"timestamp": datetime.utcnow().isoformat()})
+
+        # Get sentiment analysis
+        sentiment_score, sentiment = sentiment_analysis(user_query)
+
+        # Save the query to the database
+        collection.insert_one({
+            "user_query": user_query,
+            "generated_text": generated_text,
+            "sentiment_score": sentiment_score,
+            "sentiment": sentiment,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+
         return {
             "user_query": user_query,
-           
             "generated_text": generated_text
         }
 
     except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=500, detail=f"Error communicating with Gemini API: {str(e)}")   
+        raise HTTPException(status_code=500, detail=f"API Request Failed: {str(e)}")
+
+    except KeyError:
+        raise HTTPException(status_code=500, detail="Unexpected API response format")
     
-        
+    
+    # Check if the query exists in the database
+    # query_data = collection.find_one({"user_query
 
 #Query Category Distribution
 
@@ -135,9 +152,6 @@ async def get_query_trends():
 
     return [{"date": date, "query_count": count} for date, count in trends.items()]
         
-
-
-
 #User Engagement
 @app.get("/user-engagement")
 async def get_user_engagement():
@@ -150,36 +164,9 @@ async def get_user_engagement():
 
     # Convert to a JSON-friendly format
     engagement_list = [{"user_query": key, "count": value} for key, value in user_engagement.items()]
+    return engagement_list
 
-    return JSONResponse(content=engagement_list)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    #return JSONResponse(content=engagement_list)
 
 
 
@@ -187,7 +174,9 @@ async def get_user_engagement():
 def home():
     return {"message": "Welcome to the Gemini Analysis API"}
 
+
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000, reload=True)
-
+    uvicorn.run(app, host="127.0.0.1", port=8080, reload=True)
