@@ -9,20 +9,22 @@ from datetime import datetime
 from bson import ObjectId
 from collections import defaultdict
 from fastapi.responses import JSONResponse
+from datetime import datetime
+from dateutil.parser import parse
 
 app = FastAPI()
 # CORS configuration
 origin = [
-
     "*"
-
 ]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origin,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],)
+    allow_headers=["*"],
+)
 
 class SentimentRequest(BaseModel):
     text: str
@@ -120,18 +122,18 @@ async def analyze_text(request: QueryModel):
     # query_data = collection.find_one({"user_query
 
 #Query Category Distribution
-
 @app.get("/query-category-distribution")
 async def get_query_category_distribution():
     res = collection.find({})
     category_distribution = defaultdict(int)
 
     for doc in res:
-        sentiment = doc.get("sentiment")
+        sentiment = doc.get("sentiment", "Unknown")  # Default fallback
         category_distribution[sentiment] += 1
 
-        formatted_data=[{"category": k, "count": v} for k,v in category_distribution.items()]
-        return formatted_data
+    formatted_data = [{"category": k, "count": v} for k, v in category_distribution.items()]
+    return formatted_data
+
 
 
 
@@ -144,8 +146,16 @@ async def get_query_trends():
     for doc in res:
         timestamp = doc.get("timestamp")
 
+        # Convert string to datetime if needed
+        if isinstance(timestamp, str):
+            try:
+                timestamp = parse(timestamp)
+            except Exception as e:
+                print(f"Invalid timestamp format: {timestamp}")
+                continue
+
         if isinstance(timestamp, datetime):
-            date_str = timestamp.strftime('%Y-%m-%d')  # Extract date as string
+            date_str = timestamp.strftime('%Y-%m-%d')
             trends[date_str] += 1
         else:
             print(f"Skipping invalid timestamp: {timestamp}")
