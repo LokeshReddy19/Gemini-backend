@@ -40,9 +40,10 @@ API_URL=f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-fla
 
 
 #MongoDB configuration
-MONGO_URI =  "mongodb+srv://narralokeshreddy859:KDag76fPNbPKt0wx@analysis.6kz1qmc.mongodb.net/"
+MONGO_URI =  "mongodb+srv://narralokeshreddy859:KDag76fPNbPKt0wx@analysis.6kz1qmc.mongodb.net/?retryWrites=true&w=majority"
 
-client = MongoClient(MONGO_URI)
+client = MongoClient(MONGO_URI,tls=True,
+    tlsAllowInvalidCertificates=True)
 db = client.get_database("gemini_analysis")
 collection = db.get_collection("queries")
 
